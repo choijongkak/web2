@@ -1,0 +1,1123 @@
+﻿<!DOCTYPE html>
+<html lang="ko" xmlns:v="urn:schemas-microsoft-com:vml">
+<head>
+<title>Daum Map</title>
+<meta name="viewport" content="initial-scale=1.0,user-scalable=no">
+<style type="text/css">
+html { height: 100% }
+body { height: 100%; margin: 0; padding: 0 }
+#map { width: 100%; height: 100% }
+</style>
+<style>
+.label {margin-bottom: 96px;}
+.label * {display: inline-block;vertical-align: top;}
+.label .left {background: url("http://i1.daumcdn.net/localimg/localimages/07/2011/map/storeview/tip_l.png") no-repeat;display: inline-block;height: 24px;overflow: hidden;vertical-align: top;width: 7px;}
+.label .center {background: url(http://i1.daumcdn.net/localimg/localimages/07/2011/map/storeview/tip_bg.png) repeat-x;display: inline-block;height: 24px;font-size: 12px;line-height: 24px;}
+.label .right {background: url("http://i1.daumcdn.net/localimg/localimages/07/2011/map/storeview/tip_r.png") -1px 0  no-repeat;display: inline-block;height: 24px;overflow: hidden;width: 6px;}
+</style>
+<script type="text/javascript" src="http://apis.daum.net/maps/maps3.js?apikey=[266b0c09d2a7d67de5ee312695a092a4  ]&libraries=services"></script>
+
+<script type="text/javascript">
+
+	var oMap;
+	var oRoadViewClient;
+	var oReadView;
+	var oRoadviewOverlay = new daum.maps.RoadviewOverlay();
+
+	var EventKey = "";	 // 이벤트 키
+	var EventObject = ""; // 이벤트 종류 (Marker,Polyline,Polygon,Circle,InfoWindow...)
+	var EventLatLng = "0,0"; // 이벤트 좌표값
+	var EventPoint = "0,0"; // 이벤트 위치값
+
+	var click;		 // 클릭(0/1)
+	var dragstart;   // 드리그 시작
+	var drag;        // 드리그 중
+	var dragend;     // 드리그 종료
+	var dblclick;	 // 더블클릭(0/1)
+	var rightclick;  // 오른쪽 마우스 클릭
+	var mouseenter;  // 해당 객체 위에 마우스 포인터를 올림(0/1)
+	var mouseleave;	 // 마우스 포인터가 해당 객체 위를 벗어남(0/1)
+	var mousemove;	 // 해당 객체 위에서 마우스가 움직임(0/1)
+	var mousedown;	 // 해당 객체 위에서 마우스 왼쪽 버튼을 누름(0/1)
+
+	// 검색 라이브러리
+	var coordresult;	// 좌표
+	var addrresult;		// 주소
+	var wtmresult;		// WTM좌표
+	var wgbresult;		// WGB84좌표
+	
+	var placesresult;	// 장소
+	var categoryresult;	// 카테고리
+
+
+	// 맵 전용 이벤트
+	var center_changed;
+	var zoom_changed;
+	var bounds_changed;
+
+	// 로드뷰 전용 이벤트
+	var initend;
+	var panoid_changed;
+	var viewpoint_changed;
+	var position_changed;
+
+	var oMarkers = new Array();     // 마커
+	var oPolylines = new Array();	// 라인
+	var oPolygons = new Array();	// 도형
+	var oCircles = new Array();		// 원
+	var oInfoWindows = new Array();  // 정보창
+	var oCustomOverlays = new Array(); // 커스텀 오버래이
+	var oImage = new Array();		// 이미지
+
+	var geocoder = new daum.maps.services.Geocoder();
+	var pser;
+
+	//기본 아이콘
+	var oIcon = new daum.maps.MarkerImage(
+		'http://static.naver.com/maps2/icons/pin_spot2.png',
+		new daum.maps.Size(31, 34),
+		new daum.maps.Point(16,34),
+		"poly",
+		"1,20,1,9,5,2,10,0,21,0,27,3,30,9,30,20,17,33,14,33"
+	);
+
+	function init(Lat,Lng) {
+		oMap = new daum.maps.Map(document.getElementById('map'), {
+			center: new daum.maps.LatLng(Lat, Lng),
+			level: 4
+		});
+		var zoomControl = new daum.maps.ZoomControl();
+		oMap.addControl(zoomControl, daum.maps.ControlPosition.RIGHT);
+		var mapTypeControl = new daum.maps.MapTypeControl();
+		oMap.addControl(mapTypeControl, daum.maps.ControlPosition.TOPRIGHT);
+	
+		pser = new daum.maps.services.Places(oMap); 
+
+		// 이벤트 처리
+		daum.maps.event.addListener(oMap, "mousemove", function (oEvent) { setEvent("", "Map", "mousemove", oEvent.latLng, oEvent.point) });
+		daum.maps.event.addListener(oMap, "click", function (oEvent) { setEvent("", "Map", "click", oEvent.latLng, oEvent.point) });
+		daum.maps.event.addListener(oMap, "dblclick", function (oEvent) { setEvent("", "Map", "dblclick", oEvent.latLng, oEvent.point) });
+		daum.maps.event.addListener(oMap, "rightclick", function (oEvent) { setEvent("", "Map", "rightclick", oEvent.latLng, oEvent.point) });
+
+		daum.maps.event.addListener(oMap, "dragstart", function () {
+			var center = oMap.getCenter();
+			setEvent("", "map", "dragstart", center, null)
+		});
+
+		daum.maps.event.addListener(oMap, "drag", function () {
+			var center = oMap.getCenter();
+			setEvent("", "map", "drag", center, null)
+		});
+
+		daum.maps.event.addListener(oMap, "dragend", function () {
+			var center = oMap.getCenter();
+			setEvent("", "map", "dragend", center, null)
+		});
+
+		daum.maps.event.addListener(oMap, "center_changed", function () {
+			var center = oMap.getCenter();
+			setEvent("", "map", "center_changed", center, null)
+		});
+
+		daum.maps.event.addListener(oMap, "zoom_changed", function () {
+			var center = oMap.getCenter();
+			setEvent("", "map", "zoom_changed", center, null)
+		});
+
+		daum.maps.event.addListener(oMap, "bounds_changed", function () {
+			var center = oMap.getCenter();
+			setEvent("", "map", "bounds_changed", center, null)
+		});
+
+	}
+
+	function initRoadView(Lat, Lng) {
+		var p = new daum.maps.LatLng(Lat, Lng);
+		oRoadViewClient = new daum.maps.RoadviewClient();
+		oReadView = new daum.maps.Roadview(document.getElementById("map"));
+
+		oRoadViewClient.getNearestPanoId(p, 50, function(panoid) {
+			oReadView.setPanoId(panoid, p);
+		});
+
+		daum.maps.event.addListener(oReadView, "init", function () {
+			var center = oMap.getCenter();
+			setEvent("", "RoadView", "initend", center, null)
+		});
+
+		daum.maps.event.addListener(oReadView, "panoid_changed", function () {
+			var center = oMap.getCenter();
+			setEvent("", "RoadView", "panoid_changed", center, null)
+		});
+
+		daum.maps.event.addListener(oReadView, "viewpoint_changed", function () {
+			var center = oMap.getCenter();
+			setEvent("", "RoadView", "viewpoint_changed", center, null)
+		});
+
+		daum.maps.event.addListener(oReadView, "position_changed", function () {
+			var center = oMap.getCenter();
+			setEvent("", "RoadView", "position_changed", center, null)
+		});
+	}
+
+	function setCenter(Lat, Lng, Type) {
+		oMap.setCenter(new daum.maps.LatLng(Lat, Lng));
+	}
+
+	function setMapTypeControl(show, position) { 
+	  if(getTrueFalse(show)) 
+	  { 
+		   oMap.addControl(mapTypeControl, position); 
+	  } else { 
+		   oMap.removeControl(mapTypeControl, position);  
+	  }
+   } 
+  
+	function setMapType(MapTypeID) {  
+	   oMap.setMapTypeId(MapTypeID);   
+	}  
+ 
+	function addOverlayMapType(MapTypeID, show) {  
+	  if(getTrueFalse(show)) 
+	  { 
+			oMap.addOverlayMapTypeId(MapTypeID);    
+		 } else { 
+			oMap.removeOverlayMapTypeId(MapTypeID); 
+	  } 
+	} 
+
+	function setPanTo(Lat, Lng) {
+		oMap.panTo(new daum.maps.LatLng(Lat, Lng));
+	}
+
+	function setPanBy(y, x) {
+		oMap.panBy(y, x);
+	}
+
+	function getCenter() {
+		//return oMap.getCenter().getLat() + "," + oMap.getCenter().getLng();
+		return oMap.getCenter().toString();
+	}
+
+	function setLevel(Level) {
+		oMap.setLevel(Level);
+	}
+
+	function getLevel() {
+		return oMap.getLevel();
+	}
+
+	function getBounds() {
+		return oMap.getBounds().toString();
+	}
+
+	function setDraggable(draggable) {
+		oMap.setDraggable(getTrueFalse(draggable));    
+	}
+
+	function setZoomable(Zoomable) {
+		oMap.setZoomable(getTrueFalse(Zoomable));    
+	}
+
+	function setTraffic(Traffic) {
+		if (getTrueFalse(Traffic))
+		{
+			oMap.addOverlayMapTypeId(daum.maps.MapTypeId.TRAFFIC);    
+		} else {
+			oMap.removeOverlayMapTypeId(daum.maps.MapTypeId.TRAFFIC);
+		}
+	}
+
+	function setTerrain(Terrain) {
+		if (getTrueFalse(Terrain))
+		{
+			oMap.addOverlayMapTypeId(daum.maps.MapTypeId.TERRAIN);    
+		} else {
+			oMap.removeOverlayMapTypeId(daum.maps.MapTypeId.TERRAIN);
+		}
+	}
+
+	function setRoadView(RoadView) {
+		if (getTrueFalse(RoadView))
+		{
+			oMap.addOverlayMapTypeId(daum.maps.MapTypeId.ROADVIEW);    
+		} else {
+			oMap.removeOverlayMapTypeId(daum.maps.MapTypeId.ROADVIEW);
+		}
+	}
+
+	function setBicycle(Bicycle) {
+		if (getTrueFalse(Bicycle))
+		{
+			oMap.addOverlayMapTypeId(daum.maps.MapTypeId.BICYCLE);    
+		} else {
+			oMap.removeOverlayMapTypeId(daum.maps.MapTypeId.BICYCLE);
+		}
+	}
+
+	function getGeoLocation() {
+		var lat, lng;
+		if (navigator.geolocation) {
+			// GeoLocation을 이용해서 접속 위치를 얻어옵니다
+			navigator.geolocation.getCurrentPosition(function(position) {
+				lat = position.coords.latitude; // 위도
+				lng = position.coords.longitude; // 경도
+			});
+			return lat + "," + lng;
+		} else { // HTML5의 GeoLocation을 사용할 수 없을때 마커 표시 위치와 인포윈도우 내용을 설정합니다
+			return "현제 위치를 가져 오지 못했습니다.";
+		}
+	}
+
+	function setPolygon(iKey, MapLines, strokeColor, strokeWidth, strokeOpacity, fillColor, fillOpacity) {
+
+		var sLCnt = oPolygons.length;
+
+		// 좌표를 배열에 넣음
+		var sMap = MapLines.split(";"); 
+		var sLine = new Array();
+		for(i=0; i<sMap.length; i++)
+		{
+			var sGPS = sMap[i].split(","); 
+			sLine[i] = new daum.maps.LatLng(sGPS[0], sGPS[1]);
+		}
+
+		// 중복 키 확인
+		var KeyChk = -1;
+		if (sLCnt > 0) {
+			for (var i in oPolygons) {
+				if (oPolygons[i].Key == iKey) { // 동일한 키
+					KeyChk = i;
+					break;
+				}
+			}
+		}
+
+		if (KeyChk > -1) {
+			if (oPolygons[KeyChk].Polygon != null) {
+			    oPolygons[KeyChk].Polygon.setMap(null);
+			}
+			sLCnt = KeyChk;
+		}
+
+		var tPolygon = new daum.maps.Polygon({
+			path : sLine,
+			strokeWeight : strokeWidth,
+			strokeColor : strokeColor,
+			strokeOpacity : strokeOpacity,
+			fillColor : fillColor,
+			fillOpacity : fillOpacity
+		});
+
+		var sObj = new Object();
+		sObj.Key = iKey;
+		sObj.Polygon = tPolygon;
+
+		oPolygons[sLCnt] = sObj; 
+		//oPolygons[sLCnt].Polygon.setPath(sLine);
+		oPolygons[sLCnt].Polygon.setMap(oMap);
+
+		daum.maps.event.addListener(oPolygons[sLCnt].Polygon, "mouseover", function () { setEvent(oPolygons[sLCnt].Key, "Polygon", "mouseenter", null, null) });
+		daum.maps.event.addListener(oPolygons[sLCnt].Polygon, "mouseout", function () { setEvent(oPolygons[sLCnt].Key, "Polygon", "mouseleave", null, null) });
+		daum.maps.event.addListener(oPolygons[sLCnt].Polygon, "mousedown", function () { setEvent(oPolygons[sLCnt].Key, "Polygon", "mousedown", null, null) });
+		daum.maps.event.addListener(oPolygons[sLCnt].Polygon, "mousedown", function () { setEvent(oPolygons[sLCnt].Key, "Polygon", "click", null, null) });
+	}
+
+	// 총 길이를 m(미터)단위로 반환합니다.
+	function getPolygonLength(iKey) {
+		for (var j in oPolygons) {
+			if (oPolygons[j].Key == iKey) {
+				if(oPolygons[j].Polygon != null) return oPolygons[j].Polygon.getLength();
+				break;
+			}
+		}
+	}
+
+	// 영역의 넓이를 ㎡(제곱미터)단위로 반환합니다.
+	function getPolygonArea(iKey) {
+		for (var j in oPolygons) {
+			if (oPolygons[j].Key == iKey) {
+				if(oPolygons[j].Polygon != null) return oPolygons[j].Polygon.getArea();
+				break;
+			}
+		}
+	}
+
+	// 폴리곤 삭제
+	function delPolygon(iKey) {
+		if (iKey == "") {
+			for (var i in oPolygons) {
+				if(oPolygons[i].Polygon != null) oPolygons[i].Polygon.setMap(null);
+			}
+		}
+		else {
+			for (var j in oPolygons) {
+				if (oPolygons[j].Key == iKey) {
+					if(oPolygons[j].Polygon != null) oPolygons[j].Polygon.setMap(null);
+					break;
+				}
+			}
+		}
+	}
+
+	// 라인
+	function setLine(iKey, MapLines, strokeColor, strokeWidth, strokeOpacity, endArrow ) {
+
+		var sLCnt = oPolylines.length;
+
+		// 좌표를 배열에 넣음
+		var sMap = MapLines.split(";"); 
+		var sLine = new Array();
+		for(i=0; i<sMap.length; i++)
+		{
+			var sGPS = sMap[i].split(","); 
+			sLine[i] = new daum.maps.LatLng(sGPS[0], sGPS[1]);
+		}
+
+		// 중복 키 확인
+		var KeyChk = -1;
+		if (sLCnt > 0) {
+			for (var i in oPolylines) {
+				if (oPolylines[i].Key == iKey) { // 동일한 키가 있으면 위치 이동을 함!
+					KeyChk = i;
+					break;
+				}
+			}
+		}
+
+		if (KeyChk > -1) {
+			if(oPolylines[KeyChk].Polyline != null) oPolylines[KeyChk].Polyline.setMap(null)
+			sLCnt = KeyChk;
+		}
+
+		var tPolyline = new daum.maps.Polyline({
+			path : sLine,
+			strokeWeight : strokeWidth,
+			strokeColor  : strokeColor,
+			strokeOpacity : strokeOpacity,
+			endArrow : endArrow
+		});
+
+		var sObj = new Object();
+		sObj.Key = iKey;
+		sObj.Polyline = tPolyline;
+		
+		oPolylines[sLCnt] = sObj; 
+		//oPolylines[sLCnt].Polyline.setPath(sLine);
+		oPolylines[sLCnt].Polyline.setMap(oMap);
+
+		daum.maps.event.addListener(oPolylines[sLCnt].Polyline, "mouseover", function () { setEvent(oPolylines[sLCnt].Key, "Polyline", "mouseenter", null, null) });
+		daum.maps.event.addListener(oPolylines[sLCnt].Polyline, "mouseout", function () { setEvent(oPolylines[sLCnt].Key, "Polyline", "mouseleave", null, null) });
+		daum.maps.event.addListener(oPolylines[sLCnt].Polyline, "mousedown", function () { setEvent(oPolylines[sLCnt].Key, "Polyline", "mousedown", null, null) });
+		daum.maps.event.addListener(oPolylines[sLCnt].Polyline, "mousedown", function () { setEvent(oPolylines[sLCnt].Key, "Polyline", "click", null, null) });
+
+	}
+	
+	// 총 길이를 m(미터)단위로 반환합니다.
+	function getLineLength(iKey) {
+
+		for (var j in oPolylines) {
+			if (oPolylines[j].Key == iKey) {
+				if(oPolylines[j].Polyline != null) return oPolylines[j].Polyline.getLength();
+				break;
+			}
+		}
+	}
+
+	// 지정된 라인 제거
+	function delLine(iKey) {
+		if (iKey == "") {
+			for (var i in oPolylines) {
+				if(oPolylines[i].Polyline != null) oPolylines[i].Polyline.setMap(null);
+			}
+		}
+		else {
+			for (var j in oPolylines) {
+				if (oPolylines[j].Key == iKey) {
+					if(oPolylines[j].Polyline != null) oPolylines[j].Polyline.setMap(null); 
+					break;
+				}
+			}
+		}
+	}
+	
+	
+	function setInfoWindow(iKey,Lat,Lng,Msg) {
+
+		// 더 보강 필요... 글자가 밑으로만 찍힘...ㅜ.ㅜ
+
+		// 등록된 키가 있는지 확인
+		var sMCnt = oInfoWindows.length;
+		var KeyChk = -1;
+		if (sMCnt > 0) {
+			for (var i in oInfoWindows) {
+				if (oInfoWindows[i].Key == iKey) { // 동일한 키가 있으면 위치 이동을 함!
+					KeyChk = i;
+					break;
+				}
+			}
+		}
+
+		if (KeyChk > -1) {
+			oInfoWindows[KeyChk].InfoWindow.close();
+			sMCnt = KeyChk;
+		}
+
+		//alert(Lat + " : " + Lng);
+		var tInfoWindow = new daum.maps.InfoWindow({
+			position :  new daum.maps.LatLng(Lat,Lng),
+			content : Msg
+		});
+		
+		var sObj = new Object();
+		sObj.Key = iKey;
+		sObj.InfoWindow = tInfoWindow;
+		
+		oInfoWindows[sMCnt] = sObj; 
+		oInfoWindows[sMCnt].InfoWindow.open(oMap);
+	}
+
+
+	function delInfoWindow(iKey) {
+		if (iKey == "") {
+			for (var i in oInfoWindows) {
+				if(oInfoWindows[i].InfoWindow != null) oInfoWindows[i].InfoWindow.close();
+			}
+		}
+		else {
+			for (var j in oInfoWindows) {
+				if (oInfoWindows[j].Key == iKey) {
+					if(oInfoWindows[j].InfoWindow != null) oInfoWindows[j].InfoWindow.close();
+					break;
+				}
+			}
+		}
+	}
+
+
+	function setCircle(iKey,Lat,Lng,radius,strokeColor,strokeWidth,strokeOpacity,fillColor,fillOpacity) {
+		
+		// 등록된 키가 있는지 확인
+		var sMCnt = oCircles.length;
+		var KeyChk = -1;
+		if (sMCnt > 0) {
+			for (var i in oCircles) {
+				if (oCircles[i].Key == iKey) { // 동일한 키가 있으면 위치 이동을 함!
+					KeyChk = i;
+					break;
+				}
+			}
+		}
+
+		if (KeyChk > -1) {
+			oCircles[KeyChk].Circle.setMap(null);
+			sMCnt = KeyChk;
+		}
+
+		var oCircle = new daum.maps.Circle({
+			center : new daum.maps.LatLng(Lat, Lng),
+			radius : radius,
+			strokeWeight : strokeWidth,
+			strokeColor : strokeColor,
+			strokeOpacity : strokeOpacity,
+			fillColor : fillColor,
+			fillOpacity : fillOpacity
+		});
+
+		var sObj = new Object();
+		sObj.Key = iKey;
+		sObj.Circle = oCircle;
+		oCircles[sMCnt] = sObj; // 배열에 마크 추가
+		
+		oCircles[sMCnt].Circle.setMap(oMap); // 마크를 지도에 추가
+	}
+
+	function delCircle(iKey) {
+
+		if (iKey == "") {
+			for (var i in oCircles) {
+				if(oCircles[i].Circle != null) oCircles[i].Circle.setMap(null);
+			}
+		}
+		else {
+			for (var j in oCircles) {
+				if (oCircles[j].Key == iKey) {
+					if(oCircles[j].Circle != null) oCircles[j].Circle.setMap(null);
+					break;
+				}
+			}
+		}
+	
+	}
+
+	// 원의 영역
+	function getCircleBounds(iKey) {
+		for (var j in oCircles) {
+			if (oCircles[j].Key == iKey) {
+				if(oCircles[j].Circle != null) return oCircles[j].Circle.getBounds().Q + "," + 
+													  oCircles[j].Circle.getBounds().Y + "," + 
+													  oCircles[j].Circle.getBounds().W + "," + 
+													  oCircles[j].Circle.getBounds().X;
+				break;
+			}
+		}
+	}
+
+	
+	//원의 반경 (m)
+	function getCircleRadius(iKey) {
+		for (var j in oCircles) {
+			if (oCircles[j].Key == iKey) {
+				if(oCircles[j].Circle != null) return Math.round(oCircles[j].Circle.getRadius());
+				break;
+			}
+		}
+	}
+
+
+	function setImage(iKey, Url, SizeY, SizeX, OffsetY, OffsetX) {
+		// 등록된 키가 있는지 확인
+		var sMCnt = oImage.length;
+		var KeyChk = -1;
+		if (sMCnt > 0) {
+			for (var i in oImage) {
+				if (oImage[i].Key == iKey) { // 동일한 키가 있으면 위치 이동을 함!
+					KeyChk = i;
+					break;
+				}
+			}
+		}
+
+		if (KeyChk > -1) {
+			sMCnt = KeyChk;
+		}
+
+		var oSize = new daum.maps.Size(SizeY, SizeX);
+		var oOffset = new new daum.maps.Point(OffsetY, OffsetX);
+		var oIcon = new daum.maps.MarkerImage(Url, oSize, oOffset,"poly","1,20,1,9,5,2,10,0,21,0,27,3,30,9,30,20,17,33,14,33");
+
+		var sObj = new Object();
+		sObj.Key = iKey;
+		sObj.Image = oIcon;
+		oImage[sMCnt] = sObj;
+	}
+
+	
+	function setMarker(iKey, Lat, Lng, iMsg, iImage) {
+
+		if(Lat == null || Lng == null || Lat == "" || Lng == ""  || Lat == 0 || Lng == 0 ) {
+			//alert("알수없는 좌표 입니다.");
+			return;
+		}
+
+		var sMCnt = oMarkers.length;
+		//alert("등록된 마커수:" + sMCnt);
+
+		for (var i in oImage)
+		{
+			if (oImage[i].Key == iImage)
+			{
+				oIcon = oImage[i].Image;
+				break;
+			}
+		}
+		
+		// 등록된 키가 있는지 확인
+		var KeyChk = -1;
+		if (sMCnt > 0) {
+			for (var i in oMarkers) {
+				if (oMarkers[i].Key == iKey) { // 동일한 키가 있으면 위치 이동을 함!
+					KeyChk = i;
+					break;
+				}
+			}
+		}
+
+		if (KeyChk > -1) {
+			oMarkers[KeyChk].Marker.setMap(null);
+			sMCnt = KeyChk;
+		}
+
+		var oMarker = new daum.maps.Marker({
+			position : new daum.maps.LatLng(Lat, Lng),
+			image : oIcon
+		});
+
+		var sObj = new Object();
+		sObj.Key = iKey;
+		sObj.Marker = oMarker;
+		oMarkers[sMCnt] = sObj; 
+
+		oMarkers[sMCnt].Marker.setTitle(iMsg);
+		oMarkers[sMCnt].Marker.setMap(oMap);
+
+		daum.maps.event.addListener(oMarkers[sMCnt].Marker, "click", function () { setEvent(oMarkers[sMCnt].Key, "Marker", "click", null, null) });
+		daum.maps.event.addListener(oMarkers[sMCnt].Marker, "mouseover", function () { setEvent(oMarkers[sMCnt].Key, "Marker", "mouseleave", null, null) });
+		daum.maps.event.addListener(oMarkers[sMCnt].Marker, "mouseout", function () { setEvent(oMarkers[sMCnt].Key, "Marker", "mousedown", null, null) });
+		daum.maps.event.addListener(oMarkers[sMCnt].Marker, "rightclick", function () { setEvent(oMarkers[sMCnt].Key, "Marker", "rightclick", null, null) });
+		daum.maps.event.addListener(oMarkers[sMCnt].Marker, "dragstart", function () { setEvent(oMarkers[sMCnt].Key, "Marker", "dragstart", null, null) });
+		daum.maps.event.addListener(oMarkers[sMCnt].Marker, "dragend", function () { setEvent(oMarkers[sMCnt].Key, "Marker", "dragend", null, null) });
+	}
+
+	// 지정된 마크 제거
+	function delMarker(iKey) {
+
+		if (iKey == "") {
+			for (var i in oMarkers) {
+				if(oMarkers[i].Marker != null) oMarkers[i].Marker.setMap(null);
+			}
+		}
+		else {
+			for (var j in oMarkers) {
+				if (oMarkers[j].Key == iKey) {
+					if(oMarkers[j].Marker != null) oMarkers[j].Marker.setMap(null);
+					break;
+				}
+			}
+		}
+	}
+
+
+	function setMarkerPosition(iKey, Lat, Lng) {
+		for (var j in oMarkers) {
+			if (oMarkers[j].Key == iKey) {
+				if (oMarkers[j].Marker != null) oMarkers[j].Marker.setPosition(new daum.maps.LatLng(Lat, Lng));
+				break;
+			}
+		}
+	}
+
+	function getMarkerPosition(iKey) {
+		for (var j in oMarkers) {
+			if (oMarkers[j].Key == iKey) {
+				if (oMarkers[j].Marker != null) return oMarkers[j].Marker.getPosition().ya + "," + oMarkers[j].Marker.getPosition().xa;
+				break;
+			}
+		}
+	}
+
+	function setMarkerZIndex(iKey, ZIndex) {
+		for (var j in oMarkers) {
+			if (oMarkers[j].Key == iKey) {
+				if (oMarkers[j].Marker != null) oMarkers[j].Marker.setZIndex(ZIndex);
+				break;
+			}
+		}
+	}
+
+	function getMarkerZIndex(iKey) {
+		for (var j in oMarkers) {
+			if (oMarkers[j].Key == iKey) {
+				if (oMarkers[j].Marker != null) return oMarkers[j].Marker.getZIndex();
+				break;
+			}
+		}
+	}
+
+	function setMarkerVisible(iKey, Visible) {
+		for (var j in oMarkers) {
+			if (oMarkers[j].Key == iKey) {
+				if (oMarkers[j].Marker != null) oMarkers[j].Marker.setVisible(Visible);
+				break;
+			}
+		}
+	}
+
+	function getMarkerVisible(iKey) {
+		for (var j in oMarkers) {
+			if (oMarkers[j].Key == iKey) {
+				if (oMarkers[j].Marker != null) return oMarkers[j].Marker.getVisible();
+				break;
+			}
+		}
+	}
+
+	function setMarkerTitle(iKey, Title) {
+		for (var j in oMarkers) {
+			if (oMarkers[j].Key == iKey) {
+				if (oMarkers[j].Marker != null) oMarkers[j].Marker.setTitle(Title);
+				break;
+			}
+		}
+	}
+
+	function getMarkerTitle(iKey) {
+		for (var j in oMarkers) {
+			if (oMarkers[j].Key == iKey) {
+				if (oMarkers[j].Marker != null) return oMarkers[j].Marker.getTitle();
+				break;
+			}
+		}
+	}
+
+	// 지정된 마크의 마우스 이동 여부
+	function setMarkerDraggable(iKey, Draggable) {
+
+		if (iKey == "") {
+			for (var i in oMarkers) {
+				if(oMarkers[i].Marker != null) oMarkers[i].Marker.setDraggable(getTrueFalse(Draggable));
+			}
+		}
+		else {
+			for (var j in oMarkers) {
+				if (oMarkers[j].Key == iKey) {
+					if(oMarkers[j].Marker != null) oMarkers[j].Marker.setDraggable(getTrueFalse(Draggable));
+					break;
+				}
+			}
+		}
+
+	}
+
+	function getMarkerDraggable(iKey) {
+		for (var j in oMarkers) {
+			if (oMarkers[j].Key == iKey) {
+				if (oMarkers[j].Marker != null) return oMarkers[j].Marker.getDraggable();
+				break;
+			}
+		}
+	}
+
+	// CustomOverlay
+	function setCustomOverlay(iKey,Lat,Lng,yAnchor,xAnchor,Content) {
+		
+		// 등록된 키가 있는지 확인
+		var sMCnt = oCustomOverlays.length;
+		var KeyChk = -1;
+		if (sMCnt > 0) {
+			for (var i in oCustomOverlays) {
+				if (oCustomOverlays[i].Key == iKey) { // 동일한 키가 있으면 위치 이동을 함!
+					KeyChk = i;
+					break;
+				}
+			}
+		}
+
+		if (KeyChk > -1) {
+			oCustomOverlays[KeyChk].CustomOverlay.setMap(null);
+			sMCnt = KeyChk;
+		}
+
+		var oCustomOverlay = new daum.maps.CustomOverlay({
+			position: new daum.maps.LatLng(Lat, Lng),
+			yAnchor: yAnchor,
+			xAnchor: xAnchor,
+			content: Content
+		});
+
+		var sObj = new Object();
+		sObj.Key = iKey;
+		sObj.CustomOverlay = oCustomOverlay;
+		oCustomOverlays[sMCnt] = sObj; // 배열에 CustomOverlay 추가
+		
+		oCustomOverlays[sMCnt].CustomOverlay.setMap(oMap); // CustomOverlay를 지도에 추가
+
+		daum.maps.event.addListener(oCustomOverlays[sMCnt].CustomOverlay, "click", function () { setEvent(oCustomOverlays[sMCnt].Key, "CustomOverlay", "click", null, null) });
+		daum.maps.event.addListener(oCustomOverlays[sMCnt].CustomOverlay, "mouseover", function () { setEvent(oCustomOverlays[sMCnt].Key, "CustomOverlay", "mouseleave", null, null) });
+		daum.maps.event.addListener(oCustomOverlays[sMCnt].CustomOverlay, "mouseout", function () { setEvent(oCustomOverlays[sMCnt].Key, "CustomOverlay", "mousedown", null, null) });
+		daum.maps.event.addListener(oCustomOverlays[sMCnt].CustomOverlay, "rightclick", function () { setEvent(oCustomOverlays[sMCnt].Key, "CustomOverlay", "rightclick", null, null) });
+		daum.maps.event.addListener(oCustomOverlays[sMCnt].CustomOverlay, "dragstart", function () { setEvent(oCustomOverlays[sMCnt].Key, "CustomOverlay", "dragstart", null, null) });
+		daum.maps.event.addListener(oCustomOverlays[sMCnt].CustomOverlay, "dragend", function () { setEvent(oCustomOverlays[sMCnt].Key, "CustomOverlay", "dragend", null, null) });
+
+	}
+
+	// 지정된 CustomOverlay 제거
+	function delCustomOverlay(iKey) {
+
+		if (iKey == "") {
+			for (var i in oCustomOverlays) {
+				if(oCustomOverlays[i].CustomOverlay != null) oCustomOverlays[i].CustomOverlay.setMap(null);
+			}
+		}
+
+		else {
+
+			for (var j in oCustomOverlays) {
+				if (oCustomOverlays[j].Key == iKey) {
+					if(oCustomOverlays[j].CustomOverlay != null) oCustomOverlays[j].CustomOverlay.setMap(null);
+					break;
+				}
+			}
+		}
+
+
+	}
+
+	// 이벤처 처리
+	function getEventObject() {
+		return EventObject;
+	}
+
+	function getEventLatLng() {
+		return EventLatLng;
+	}
+
+	function getEventPoint() {
+		return EventPoint;
+	}
+
+	function getEventKey() {
+		return EventKey;
+	}
+
+	function EventClick() {
+		var r = click;
+		click = "";
+		return r;
+	}
+
+	function EventDragStart() {
+		var r = dragstart;
+		dragstart = "";
+		return r;
+	}
+
+	function EventDrag() {
+		var r = drag;
+		drag = "";
+		return r;
+	}
+
+	function EventDragEnd() {
+		var r = dragend;
+		dragend = "";
+		return r;
+	}
+
+	function EventRightclick() {
+		var r = rightclick;
+		rightclick = "";
+		return r;
+	}
+
+	function EventDblClick() {
+		var r = dblclick;
+		dblclick = "";
+		return r;
+	}
+
+	function EventMouseMove() {
+		var r = mousemove;
+		mousemove = "";
+		return r;
+	}
+
+	function EventMouseDown() {
+		var r = mousedown;
+		mousedown = "";
+		return r;
+	}
+
+
+	function EventCenterChanged() {
+		var r = center_changed;
+		center_changed = "";
+		return r;
+	}
+
+	function EventZoomChanged() {
+		var r = zoom_changed;
+		zoom_changed = "";
+		return r;
+	}
+
+	function EventBoundsChanged() {
+		var r = bounds_changed;
+		bounds_changed = "";
+		return r;
+	}
+
+	function EventInitEnd() {
+		var r = initend;
+		initend = "";
+		return r;
+	}
+
+	function EventPanoidChanged() {
+		var r = panoid_changed;
+		panoid_changed = "";
+		return r;
+	}
+
+	function EventViewpointChanged() {
+		var r = viewpoint_changed;
+		viewpoint_changed = "";
+		return r;
+	}
+
+	function EventPositionChanged() {
+		var r = position_changed;
+		position_changed = "";
+		return r;
+	}
+
+
+
+	// 주소 -> 좌표
+	function getCoordSearch(addr) {
+		geocoder.addr2coord(addr, CoordCallback);
+	}
+	function CoordCallback(status, result) {
+		if (status === daum.maps.services.Status.OK) {
+			coordresult = result.addr[0].lat + "," + result.addr[0].lng;
+		} else {
+			coordresult = status;
+		}
+	};
+	function EventCoordResult() {
+		var r = coordresult;
+		coordresult = "";
+		return r;
+	}
+
+	// 좌표 -> 주소
+	function getAddrSearch(Lat, lng) {
+		//geocoder.coord2addr(new daum.maps.LatLng(Lat, lng), AddrCallback); // 행정동 표시
+		geocoder.coord2detailaddr(new daum.maps.LatLng(Lat, lng), AddrCallback); // 상세주소 표시
+	}
+	function AddrCallback(status, result) {
+		if (status === daum.maps.services.Status.OK) {
+			addrresult = result[0].jibunAddress.name + "," + result[0].roadAddress.name;
+		} else {
+			addrresult = status;
+		}
+	};
+	function EventAddrResult() {
+		var r = addrresult;
+		addrresult = "";
+		return r;
+	}
+	
+	// WTM -> WGB84
+	function getWTM2WGB(wtmX, wtmY) {
+		geocoder.transCoord(wtmX, wtmY, daum.maps.services.Coords.WTM, daum.maps.services.Coords.WGS84, WTM2WGBCallback);
+	}
+	function WTM2WGBCallback(status, result) {
+		if (status === daum.maps.services.Status.OK) {
+			wgbresult = result;
+		} else {
+			wgbrresult = status;
+		}
+	};
+	function EventWGBResult() {
+		var r = wgbresult;
+		wgbresult = "";
+		return r;
+	}
+
+	// WGB84 -WTM
+	function getWGB2WTM(lat, lng) {
+		geocoder.transCoord(lat, lng, daum.maps.services.Coords.WGS84, daum.maps.services.Coords.WTM, WGB2WTMCallback);
+	}
+	function WGB2WTMCallback(status, result) {
+		if (status === daum.maps.services.Status.OK) {
+			wtmresult = result;
+		} else {
+			wtmrresult = status;
+		}
+	};
+	function EventWTMResult() {
+		var r = wtmresult;
+		wtmresult = "";
+		return r;
+	}
+
+	// 장소 검색
+	function getPlacesSearch(psname) {
+		pser.keywordSearch(psname, placesCallback); 
+	}
+	function placesCallback(status,  data, pagination) {
+	if (status === daum.maps.services.Status.OK) {
+			var _result = "";
+			for (var i=0; i<data.places.length; i++) {
+				if(_result != "") _result = _result + "|";
+				_result = _result + data.places[i].title + "," + data.places[i].latitude + "," + data.places[i].longitude;
+			}
+			placesresult = _result;
+		} else {
+			placesresult = status;
+		}
+	};
+	function EventPlacesResult() {
+		var r = placesresult;
+		placesresult = "";
+		return r;
+	}
+
+	// 카테고리 검색
+	// BK9=은행, MT1=마트, PM9=약국, OL7=주유소, CE7=카페, CS2=편의점
+	function getCategorySearch(caname) {
+		pser.categorySearch(caname, categoryCallback); 
+	}
+	function categoryCallback(status,  data, pagination) {
+	if (status === daum.maps.services.Status.OK) {
+			var _result = "";
+			for (var i=0; i<data.places.length; i++) {
+				if(_result != "") _result = _result + "|";
+				_result = _result + data.places[i].title + "," + data.places[i].latitude + "," + data.places[i].longitude;
+			}
+			categoryresult = _result;
+		} else {
+			categoryresult = status;
+		}
+	};
+	function EventCategoryResult() {
+		var r = categoryresult;
+		categoryresult = "";
+		return r;
+	}
+
+
+	// 마우스 이벤트 설정
+	function setEvent(iEventKey, iEventObject, iEvent, iEventLatLng, iEventPoint) {
+
+		EventKey = iEventKey;
+
+		EventObject = iEventObject;
+
+		if (iEventLatLng != null) EventLatLng = iEventLatLng.getLat() + "," + iEventLatLng.getLng();
+
+		if (iEventPoint != null) EventPoint = iEventPoint.y + "," + iEventPoint.x;
+
+		if (iEvent == "click") click = 1;
+		if (iEvent == "dragstart") dragstart = 1;
+		if (iEvent == "dragend") dragend = 1;
+		if (iEvent == "drag") drag = 1;
+		if (iEvent == "rightclick") rightclick = 1;
+		if (iEvent == "dblclick") dblclick = 1;
+		if (iEvent == "mousemove") mousemove = 1;
+		if (iEvent == "mousedown") mousedown = 1;
+		if (iEvent == "mouseenter") mouseenter = 1;
+		if (iEvent == "mouseleave") mouseleave = 1;
+
+		if (iEvent == "zoom_changed") zoom_changed = 1;
+
+		if (iEvent == "center_changed") center_changed = 1;
+		if (iEvent == "zoom_changed") zoom_changed = 1;
+		if (iEvent == "bounds_changed") bounds_changed = 1;
+
+		if (iEvent == "initend") initend = 1;
+		if (iEvent == "panoid_changed") panoid_changed = 1;
+		if (iEvent == "viewpoint_changed") viewpoint_changed = 1;
+		if (iEvent == "position_changed") position_changed = 1;
+
+		//console.log("Event [" + iEvent + "]  EventObject: " + iEventObject + "<br/> EventKey: " + EventKey + " EventObject: " + EventObject + " EventLatLng: " + EventLatLng + " EventPoint: " + EventPoint);
+	}
+	function getTrueFalse(tf)
+	{
+		if (tf == true || tf == 1 || tf == "true" || tf == "True" || tf == "TRUE" || tf == "1")
+		{
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+</script>
+</head>
+<body>
+<!-- div id="message" style="font-size:12px;width:1000px;height:30px;border:solid 1px black;padding:5px;" -->
+<div id="map"></div>
+</body>
+</html>
