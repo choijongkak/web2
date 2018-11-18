@@ -1,0 +1,1280 @@
+﻿<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" 
+	   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en_US" xml:lang="en_US">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
+	<title>Naver Map</title>
+	<script type="text/javascript">try {document.execCommand('BackgroundImageCache', false, true);} catch(e) {}</script>
+    <script type="text/javascript" src="https://openapi.map.naver.com/openapi/v3/maps.js?ncpclientId=[rbbzug8wxv]&submodules=geocoder"></script>
+    <style type="text/css">body { margin-left: 0px; margin-top: 0px; margin-right: 0px; margin-bottom: 0px; }</style>
+</head>
+<body>
+<div id="map"></div>
+<script type="text/javascript">
+
+	var oMap;	// 지도 객체
+    var oBicycleLayer = new naver.maps.BicycleLayer();
+    var oCadastralLayer = new naver.maps.CadastralLayer();
+    var oTrafficLayer = new naver.maps.TrafficLayer({
+        interval: 10000 // 10초마다 새로고침
+    });
+    var oStreetLayer = new naver.maps.StreetLayer();
+
+    var oLabelMapType = new naver.maps.NaverMapTypeOption.getNormalLabelLayer();
+    var oLabelMapTypeRegistry = new naver.maps.MapTypeRegistry({ 'label': oLabelMapType });
+    var oLabelLayer = new naver.maps.Layer('label', oLabelMapTypeRegistry);
+
+	init(37.5010226, 127.0396037); // 시작 위치
+
+	var EventLatLng = "0,0";  // 이벤트 좌표값
+	var EventKey = "";	      // 이벤트 키
+
+	var click;			 // 클릭(0/1)
+	var dblclick		 // 더블클릭(0/1)
+	var mouseenter;		 // 해당 객체 위에 마우스 포인터를 올림(0/1)
+	var mouseleave;		 // 마우스 포인터가 해당 객체 위를 벗어남(0/1)
+	var mousemove;		 // 해당 객체 위에서 마우스가 움직임(0/1)
+	var mousewheel;		 // 해당 객체 위에서 마우스 휠 동작(0/1)
+	var mousedown;		 // 해당 객체 위에서 마우스 왼쪽 버튼을 누름(0/1)
+	var mouseup;		 // 해당 객체 위에서 마우스 왼쪽 버튼을 뗌(0/1)
+	var	drag;			 // 드레그(0/1)
+	var	dragstart;		 // 드레그 시작(0/1)
+	var	dragend;		 // 드레그 종료(0/1)
+	var centerchanged;	 // 센터 변경(0/1)
+	var	boundschanged;	 // 영역 변경(0/1)
+	var	zoomchanged;	 // 확대 비율 변경(0/1)
+	var	idle;			 // idle 변경(0/1)
+
+    // 검색 라이브러리  
+    var coordresult;	 // 좌표  
+    var addrresult;      // 주소  
+
+    var markerClick;	 // 마커 클릭
+
+    /* 네이버 API에서는 작동하지 않음
+	var lineClick;		 // 라인 클릭
+	var rectangleClick;	 // 사각형 클릭
+	var circleClick;	 // 원 클릭
+	var ellipseClick;	 // 타원 클릭
+    var polygonClick;	 // 폴리곤 클릭
+	var infowindowClick; // 정보창 클릭
+    */
+
+	var oMarkers = new Array();      // 마커
+	var oPolylines = new Array();	 // 라인
+	var oPolygons = new Array();	 // 도형
+	var oCircles = new Array();		 // 원
+	var oRectangles = new Array();	 // 사각형
+	var oEllipses = new Array();	 // 타원
+	var oInfoWindows = new Array();  // 정보창
+
+
+	function init(Lat,Lng) {
+
+		var oPoint;
+		if (Lat > 1000) {
+			oPoint = new naver.maps.TM128(Lat, Lng);
+		} else {
+			oPoint = new naver.maps.LatLng(Lat, Lng);
+		}
+
+		oMap = new naver.maps.Map('map' ,{
+			point : oPoint, 
+			zoom : 7,
+			mapMode : 0,
+            size: new naver.maps.Size(10, 10),
+
+			mapTypeControl: true,
+			mapTypeControlOptions: {
+				style: naver.maps.MapTypeControlStyle.BUTTON,
+				position: naver.maps.TOP_RIGHT
+			},
+			
+			zoomControl: true,
+			zoomControlOptions: {
+				style: naver.maps.ZoomControlStyle.SMALL,
+				position: naver.maps.RIGHT_CENTER
+			},
+			
+			scaleControl: true,
+			scaleControlOptions: {
+				position: naver.maps.BOTTOM_RIGHT
+			},
+			
+			logoControl: true,
+			logoControlOptions: {
+				position: naver.maps.TOP_LEFT
+			},
+			
+			mapDataControl: true,
+			mapDataControlOptions: {
+				position: naver.maps.BOTTOM_LEFT
+			}
+		});
+	}
+
+    function setZoomControl(Show, Position, ZoomControlStyle) {
+		oMap.setOptions({
+							zoomControl: getTrueFalse(Show),
+						    zoomControlOptions: { position: Position,
+												  style: ZoomControlStyle }
+		});
+	}
+
+	function setLogoControl(Show, Position) {
+		oMap.setOptions({
+							logoControl: getTrueFalse(Show),
+						    logoControlOptions: { position: Position }
+		});
+	}
+
+	function setMapDataControl(Show, Position) {
+		oMap.setOptions({
+							mapDataControl: getTrueFalse(Show),
+						    mapDataControlOptions: { position: Position }
+		});
+	}
+
+	function setScaleControl(Show, Position) {
+		oMap.setOptions({
+							scaleControl: getTrueFalse(Show),
+						    scaleControlOptions: { position: Position }
+		});
+	}
+
+
+	function setMapTypeControl(Show, Style, Position) {
+		oMap.setOptions({
+							mapTypeControl: getTrueFalse(Show),
+						    mapTypeControlOptions: { style: Style,
+							                         position: Position }
+		});
+	}
+
+	// 지도의 최소, 최대 줌 레벨입니다. 이 값을 설정하지 않으면 지정된 초기 지도 유형의 최고 줌 레벨로 설정합니다.
+	function setMapZoom(MinZoom, MaxZoom) {
+		oMap.setOptions({minZoom: MinZoom,
+		                 maxZoom: MaxZoom });
+	}
+
+    // 자전거 도로 표시
+    function setBicycleLayer(Show) {
+        if (getTrueFalse(Show)) {
+            oBicycleLayer.setMap(oMap);
+        } else {
+            oBicycleLayer.setMap(null);
+        }
+    }
+
+    // 지적도 표시
+    function setCadastralLayer(Show) {
+        if (getTrueFalse(Show)) {
+            oCadastralLayer.setMap(oMap);
+        } else {
+            oCadastralLayer.setMap(null);
+        }
+    }
+
+    // 교통상황 표시
+    function setTrafficLayer(Show) {
+        if (getTrueFalse(Show)) {
+            oTrafficLayer.setMap(oMap);
+        } else {
+            oTrafficLayer.setMap(null);
+        }
+    }
+
+    // 교통상황 갱신 시간(ms)
+    function setTrafficLayerInterval(Interval) {
+        oTrafficLayer = new naver.maps.TrafficLayer({ interval: Interval });
+    }
+
+    // 교통상황 자동 갱신
+    function setTrafficLayerAutoRefresh(Show) {
+        if (getTrueFalse(Show)) {
+            oTrafficLayer.startAutoRefresh();
+        } else {
+            oTrafficLayer.endAutoRefresh();
+        }
+    }
+
+    // 거리뷰 표시
+    function setStreetLayer(Show) {
+        if (getTrueFalse(Show)) {
+            oStreetLayer.setMap(oMap);
+        } else {
+            oStreetLayer.setMap(null);
+        }
+    }
+
+    // 라벨 표시
+    function setLabelLayer(Show) {
+        if (getTrueFalse(Show)) {
+            //oMap.setOptions({
+            //    mapTypes: new naver.maps.MapTypeRegistry({
+            //        'normal': naver.maps.NaverMapTypeOption.getNormalMap()
+            //    })
+            //});
+            oLabelLayer.setMap(oMap);
+        } else {
+            oMap.setOptions({
+                mapTypes: new naver.maps.MapTypeRegistry({
+                    'normal': naver.maps.NaverMapTypeOption.getVectorMap()
+                })
+            });
+            oLabelLayer.setMap(null);
+        }
+    }
+
+    function Refresh() {
+        oMap.refresh();
+    }
+
+	function setCenter(Lat, Lng) {
+		var oPoint;
+		if (Lat > 1000 ) {
+			oPoint = new naver.maps.TM128(Lat, Lng);
+		} else {
+			oPoint = new naver.maps.LatLng(Lat, Lng);
+		}
+		oMap.setCenter(oPoint);
+	}
+
+	function getCenter() {
+		return oMap.getCenter().toString().replace(/\(/g,'').replace(/\)/g,'').replace(/lat:/g,'').replace(/lng:/g,'');
+	}
+
+	function getBounds() {
+		return oMap.getBounds().toString().replace(/\(/g,'').replace(/\)/g,'').replace(/lat:/g,'').replace(/lng:/g,'');
+	}
+
+	function getSize() {
+		return oMap.getSize().width + "," + oMap.getSize().height;
+    }
+
+	function setSize(Width,Height) {        
+		var nSize = new naver.maps.Size(Width, Height);
+		oMap.setSize(nSize);
+	}
+
+	function setMapType(MapTypeID) {
+		oMap.setMapTypeId(MapTypeID);
+	}
+
+	function getMapType() {
+		return oMap.getMapTypeId();
+	}
+
+	function setZoom(Level) {
+		oMap.setZoom(Level);
+	}
+
+	function getZoom() {
+		return oMap.getZoom();
+	}
+
+	// 마우스 스크롤 휠을 이용한 지도 확대/축소 허용 여부입니다.
+	function setScrollWheel(TFset) {
+		oMap.setOptions({scrollWheel: getTrueFalse(TFset) });
+	}
+
+	// 사용자가 지도 위에서 마우스 단추를 두 번 클릭해 지도를 확대하는 기능의 사용 여부입니다.
+	function setDisableDoubleClickZoom(TFset) {
+		oMap.setOptions({disableDoubleClickZoom: getTrueFalse(TFset) });
+	}
+
+	// 사용자가 지도 위에서 한 손가락으로 두 번 탭해 지도를 확대하는 기능의 사용 여부입니다.
+	function setDisableDoubleTapZoom(TFset) {
+		oMap.setOptions({disableDoubleTapZoom: getTrueFalse(TFset) });
+	}
+
+	// 사용자가 지도를 드래그했을 때 관성 효과(사용자가 동작을 끝낸 후에도 계속되는 지도의 움직임)의 사용 여부입니다.
+	function setDisableKineticPan(TFset) {
+		oMap.setOptions({disableKineticPan: getTrueFalse(TFset) });
+	}
+
+	// 사용자가 지도 위에서 두 손가락으로 두 번 탭해 지도를 축소하는 기능의 사용 여부입니다.
+	function setDisableTwoFingerTapZoom(TFset) {
+		oMap.setOptions({disableTwoFingerTapZoom: getTrueFalse(TFset) });
+	}
+
+	// 마우스 또는 손가락을 이용한 지도 이동(패닝) 허용 여부입니다.
+	function setDraggable(TFset) {
+		oMap.setOptions({draggable: getTrueFalse(TFset) });
+	}
+
+	// 키보드 방향 키를 이용한 지도 이동(패닝) 허용 여부입니다.
+	function setKeyboardShortcuts(TFset) {
+		oMap.setOptions({keyboardShortcuts: getTrueFalse(TFset) });
+	}
+
+	// 핀치 제스처를 이용한 지도 확대/축소 허용 여부입니다.
+	function setPinchZoom(TFset) {
+		oMap.setOptions({pinchZoom: getTrueFalse(TFset) });
+	}
+
+	// 지도 타일을 전환할 때 페이드 인 효과(타일이 서서히 나타타나는 것)의 사용 여부입니다.
+	function setTileTransition(TFset) {
+		oMap.setOptions({tileTransition: getTrueFalse(TFset) });
+	}
+
+	// 지도의 크기보다 보다 여유있게 로딩할 타일의 개수를 지정합니다.
+	function setTileSpare(TileSpare) {
+		oMap.setOptions({tileSpare: TileSpare });
+	}
+
+	function setPolygon(iKey, MapLines, strokeColor, strokeWeight, strokeOpacity, strokeStyle, fillColor, fillOpacity) {
+
+		var sLCnt = oPolygons.length;
+
+		// 좌표를 배열에 넣음
+		var sMap = MapLines.split(";"); 
+		var sLine = new Array();
+		for(i=0; i<sMap.length; i++)
+		{
+			var sGPS = sMap[i].split(","); 
+			sLine[i] = new naver.maps.LatLng(sGPS[0], sGPS[1]);
+		}
+
+		// 중복 키 확인
+		var KeyChk = -1;
+		if (sLCnt > 0) {
+			for (var i in oPolygons) {
+				if (oPolygons[i].Key == iKey) { // 동일한 키가 있으면 위치 이동을 함!
+					KeyChk = i;
+					break;
+				}
+			}
+		}
+
+		if (KeyChk > -1) {
+			oPolygons[KeyChk].Polygon.setMap(null);
+
+			var oPolygon = new naver.maps.Polygon({
+							paths: sLine,
+							strokeColor: strokeColor,
+							strokeWeight: strokeWeight,
+							strokeOpacity: strokeOpacity,
+							strokeStyle: strokeStyle,
+							fillColor: fillColor,
+							fillOpacity: fillOpacity
+						});
+			oPolygons[KeyChk].Polygon = oPolygon;
+			sLCnt = KeyChk;
+		} 
+		else {
+
+			var oPolygon = new naver.maps.Polygon({
+							paths: sLine,
+							strokeColor: strokeColor,
+							strokeWeight: strokeWeight,
+							strokeOpacity: strokeOpacity,
+							strokeStyle: strokeStyle,
+							fillColor: fillColor,
+							fillOpacity: fillOpacity
+						});
+			var sObj = new Object();
+			sObj.Key = iKey;
+			sObj.Polygon = oPolygon;
+			sObj.Polygon.set('key',iKey);
+			oPolygons[sLCnt] = sObj; 
+		}
+
+		oPolygons[sLCnt].Polygon.setMap(oMap);
+		oPolygons[sLCnt].Polygon.addListener( 'click', function(oEvent) {
+            setEventLatLng(oEvent.overlay) // 이벤트에 발생한 좌표 세팅
+            setEventKey(oEvent.overlay); // 이벤트에 발생한 키 세팅
+            polygonClick = 1;
+        });
+	}
+
+
+	function delPolygon(iKey) {
+		if (iKey == "all") {
+			for (var i in oPolygons) {
+				if(oPolygons[i].Polygon != null) oPolygons[i].Polygon.setMap(null);
+			}
+		}
+		else {
+			for (var j in oPolygons) {
+				if (oPolygons[j].Key == iKey) {
+					if(oPolygons[j].Polygon != null) oPolygons[j].Polygon.setMap(null);
+					break;
+				}
+			}
+		}
+	}
+
+
+	function setLine(iKey, MapLines, strokeColor, strokeWeight, strokeOpacity, strokeStyle ) {
+
+		var sLCnt = oPolylines.length;
+
+		// 좌표를 배열에 넣음
+		var sMap = MapLines.split(";"); 
+		var sLine = new Array();
+		for(i=0; i<sMap.length; i++)
+		{
+			var sGPS = sMap[i].split(","); 
+			sLine[i] = new naver.maps.LatLng(sGPS[0], sGPS[1]);
+		}
+
+		// 중복 키 확인
+		var KeyChk = -1;
+		if (sLCnt > 0) {
+			for (var i in oPolylines) {
+				if (oPolylines[i].Key == iKey) { // 동일한 키가 있으면 위치 이동을 함!
+					KeyChk = i;
+					break;
+				}
+			}
+		}
+
+		if (KeyChk > -1) {
+			oPolylines[KeyChk].Polyline.setMap(null);
+			
+			var oPolyline = new naver.maps.Polyline({
+				path: sLine,
+				strokeWeight: strokeWeight,
+				strokeColor: strokeColor,
+				strokeOpacity: strokeOpacity,
+				strokeStyle: strokeStyle
+			});
+			oPolylines[KeyChk].Polyline = oPolyline;
+
+			sLCnt = KeyChk;
+		}
+		else {
+
+			var oPolyline = new naver.maps.Polyline({
+							path: sLine,
+							strokeWeight: strokeWeight,
+							strokeColor: strokeColor,
+							strokeOpacity: strokeOpacity,
+							strokeStyle: strokeStyle
+						});
+	
+			var sObj = new Object();
+			sObj.Key = iKey;
+			sObj.Polyline = oPolyline;
+			sObj.Polyline.set('key',iKey);
+			oPolylines[sLCnt] = sObj; // 배열에 마크 추가
+
+		}
+		
+		oPolylines[sLCnt].Polyline.setMap(oMap);	// 라인을 지도에 반영
+		oPolylines[sLCnt].Polyline.addListener( 'click', function(oEvent) {
+            setEventLatLng(oEvent.overlay) // 이벤트에 발생한 좌표 세팅
+            setEventKey(oEvent.overlay); // 이벤트에 발생한 키 세팅
+            lineClick = 1;
+        });
+	}
+
+
+	// 지정된 라인 제거
+	function delLine(iKey) {
+
+		if (iKey == "all") {
+			for (var i in oPolylines) {
+				if(oPolylines[i].Polyline != null) oPolylines[i].Polyline.setMap(null);
+			}
+		}
+		else {
+			for (var j in oPolylines) {
+				if (oPolylines[j].Key == iKey) {
+					if(oPolylines[j].Polyline != null) oPolylines[j].Polyline.setMap(null);
+					break;
+				}
+			}
+		}
+	}
+	
+	// 원 생성
+	function setCircle(iKey, Lat, Lng, radius, strokeColor, strokeWeight, strokeOpacity, strokeStyle, fillColor, fillOpacity) {
+		
+		var cPoint;
+		if (Lat > 1000) {
+			cPoint = new naver.maps.TM128(Lat, Lng);
+		} else {
+			cPoint = new naver.maps.LatLng(Lat, Lng);
+		}
+
+		// 등록된 키가 있는지 확인
+		var sMCnt = oCircles.length;
+		var KeyChk = -1;
+		if (sMCnt > 0) {
+			for (var i in oCircles) {
+				if (oCircles[i].Key == iKey) { // 동일한 키가 있으면 위치 이동을 함!
+					KeyChk = i;
+					break;
+				}
+			}
+		}
+
+		if (KeyChk > -1) {
+			oCircles[KeyChk].Circle.setMap(null);
+
+			var oCircle = new naver.maps.Circle({
+						  center: cPoint,
+						  radius: radius,
+						  strokeColor: strokeColor,
+						  strokeWeight: strokeWeight,
+						  strokeOpacity: strokeOpacity,
+						  strokeStyle: strokeStyle,
+                          fillColor: fillColor,
+						  fillOpacity: fillOpacity
+						});
+
+			oCircles[KeyChk].Circle = oCircle;
+			sMCnt = KeyChk;
+		} 
+		else {
+
+			var oCircle = new naver.maps.Circle({
+						  center: cPoint,
+						  radius: radius,
+						  strokeColor: strokeColor,	
+						  strokeWeight: strokeWeight,
+						  strokeOpacity: strokeOpacity,
+						  strokeStyle: strokeStyle,
+                          fillColor: fillColor,
+						  fillOpacity: fillOpacity
+						});
+
+			var sObj = new Object();
+			sObj.Key = iKey;
+			sObj.Circle = oCircle;
+			sObj.Circle.set('key',iKey);
+			oCircles[sMCnt] = sObj; // 배열에 마크 추가
+		}
+
+		oCircles[sMCnt].Circle.setMap(oMap);
+		oCircles[sMCnt].Circle.addListener( 'click', function(oEvent) {
+            setEventLatLng(oEvent.overlay) // 이벤트에 발생한 좌표 세팅
+            setEventKey(oEvent.overlay); // 이벤트에 발생한 키 세팅
+            circleClick = 1;
+        });
+	}
+
+	function delCircle(iKey) {
+		if (iKey == "all") {
+			for (var i in oCircles) {
+				if(oCircles[i].Circle != null) oCircles[i].Circle.setMap(null);
+			}
+		}
+		else {
+			for (var j in oCircles) {
+				if (oCircles[j].Key == iKey) {
+					if(oCircles[j].Circle != null) oCircles[j].Circle.setMap(null);
+					break;
+				}
+			}
+		}
+	
+	}
+
+	// 사각형 생성
+	function setRectangle(iKey, Top, Right, Bottom, Left, strokeColor, strokeWeight, strokeOpacity, strokeStyle, fillColor, fillOpacity) {
+		
+		var cbounds;
+		if (Top > 1000) {
+			cbounds = new naver.maps.LatLngBounds(new naver.maps.TM128(Top, Right), new naver.maps.TM128(Bottom, Left));
+		} else {
+			cbounds = new naver.maps.LatLngBounds(new naver.maps.LatLng(Top, Right), new naver.maps.LatLng(Bottom, Left));
+		}
+
+		// 등록된 키가 있는지 확인
+		var sMCnt = oRectangles.length;
+		var KeyChk = -1;
+		if (sMCnt > 0) {
+			for (var i in oRectangles) {
+				if (oRectangles[i].Key == iKey) { // 동일한 키가 있으면 위치 이동을 함!
+					KeyChk = i;
+					break;
+				}
+			}
+		}
+
+		if (KeyChk > -1) {
+			oRectangles[KeyChk].Rectangle.setMap(null);
+
+			var oRectangle = new naver.maps.Rectangle({
+						  bounds: cbounds,
+						  strokeColor: strokeColor,
+						  strokeWeight: strokeWeight,
+						  strokeOpacity: strokeOpacity,
+						  strokeStyle: strokeStyle,
+                          fillColor: fillColor,
+						  fillOpacity: fillOpacity
+						});
+
+			oRectangles[KeyChk].Circle = oRectangle;
+			sMCnt = KeyChk;
+		} 
+		else {
+
+			var oRectangle = new naver.maps.Rectangle({
+						  bounds: cbounds,
+						  strokeColor: strokeColor,	
+						  strokeWeight: strokeWeight,
+						  strokeOpacity: strokeOpacity,
+						  strokeStyle: strokeStyle,
+                          fillColor: fillColor,
+						  fillOpacity: fillOpacity
+						});
+
+			var sObj = new Object();
+			sObj.Key = iKey;
+			sObj.Rectangle = oRectangle;
+			sObj.Rectangle.set('key',iKey);
+			oRectangles[sMCnt] = sObj; // 배열에 마크 추가
+		}
+
+		oRectangles[sMCnt].Rectangle.setMap(oMap);
+		oRectangles[sMCnt].Rectangle.addListener( 'click', function(oEvent) {
+            setEventLatLng(oEvent.overlay) // 이벤트에 발생한 좌표 세팅
+            setEventKey(oEvent.overlay); // 이벤트에 발생한 키 세팅
+            rectangleClick = 1;
+        });
+	}
+
+	function delRectangle(iKey) {
+		if (iKey == "all") {
+			for (var i in oRectangles) {
+				if(oRectangles[i].Rectangle != null) oRectangles[i].Rectangle.setMap(null);
+			}
+		}
+		else {
+			for (var j in oRectangles) {
+				if (oRectangles[j].Key == iKey) {
+					if(oRectangles[j].Rectangle != null) oRectangles[j].Rectangle.setMap(null);
+					break;
+				}
+			}
+		}
+	}
+
+	// 타원생성
+	function setEllipse(iKey, Top, Right, Bottom, Left, strokeColor, strokeWeight, strokeOpacity, strokeStyle, fillColor, fillOpacity) {
+		var cbounds;
+		if (Top > 1000) {
+			cbounds = new naver.maps.LatLngBounds(new naver.maps.TM128(Top, Right), new naver.maps.TM128(Bottom, Left));
+		} else {
+			cbounds = new naver.maps.LatLngBounds(new naver.maps.LatLng(Top, Right), new naver.maps.LatLng(Bottom, Left));
+		}
+
+		// 등록된 키가 있는지 확인
+		var sMCnt = oEllipses.length;
+		var KeyChk = -1;
+		if (sMCnt > 0) {
+			for (var i in oEllipses) {
+				if (oEllipses[i].Key == iKey) { // 동일한 키가 있으면 위치 이동을 함!
+					KeyChk = i;
+					break;
+				}
+			}
+		}
+
+		if (KeyChk > -1) {
+			oEllipses[KeyChk].Ellipse.setMap(null);
+
+			var oEllipse = new naver.maps.Ellipse({
+						  bounds: cbounds,
+						  strokeColor: strokeColor,
+						  strokeWeight: strokeWeight,
+						  strokeOpacity: strokeOpacity,
+						  strokeStyle: strokeStyle,
+                          fillColor: fillColor,
+						  fillOpacity: fillOpacity
+						});
+
+			oEllipses[KeyChk].Ellipse = oEllipse;
+			sMCnt = KeyChk;
+		} 
+		else {
+
+			var oEllipse = new naver.maps.Ellipse({
+						  bounds: cbounds,
+						  strokeColor: strokeColor,	
+						  strokeWeight: strokeWeight,
+						  strokeOpacity: strokeOpacity,
+						  strokeStyle: strokeStyle,
+                          fillColor: fillColor,
+						  fillOpacity: fillOpacity
+						});
+
+			var sObj = new Object();
+			sObj.Key = iKey;
+			sObj.Ellipse = oEllipse;
+			sObj.Ellipse.set('key',iKey);
+			oEllipses[sMCnt] = sObj; // 배열에 마크 추가
+		}
+
+		oEllipses[sMCnt].Ellipse.setMap(oMap);
+		oEllipses[sMCnt].Ellipse.addListener( 'click', function(oEvent) {
+            setEventLatLng(oEvent.overlay) // 이벤트에 발생한 좌표 세팅
+            setEventKey(oEvent.overlay); // 이벤트에 발생한 키 세팅
+            ellipseClick = 1;
+        });
+	}
+
+	function delEllipse(iKey) {
+		if (iKey == "all") {
+			for (var i in oEllipses) {
+				if(oEllipses[i].Ellipse != null) oEllipses[i].Ellipse.setMap(null);
+			}
+		}
+		else {
+			for (var j in oEllipses) {
+				if (oEllipses[j].Key == iKey) {
+					if(oEllipses[j].Ellipse != null) oEllipses[j].Ellipse.setMap(null);
+					break;
+				}
+			}
+		}
+	}
+
+
+	// 마크 생성
+	function setMarker(iKey, Lat, Lng, ImageUrl, ImageSizeWidth, ImageSizeHeight, ImagePointWidth, ImagePointHeight) {
+
+		if(Lat == null || Lng == null || Lat == "" || Lng == ""  || Lat == 0 || Lng == 0 ) {
+			//alert("알수없는 좌표 입니다.");
+			return;
+		}
+		var sMCnt = oMarkers.length;
+		//alert("등록된 마커수:" + sMCnt);
+	
+		// 마크 위치
+		var oPoint;
+		if (Lat > 1000) {
+			oPoint = new naver.maps.TM128(Lat, Lng);
+		} else {
+			oPoint = new naver.maps.LatLng(Lat, Lng);
+		}
+		
+		// 등록된 키가 있는지 확인
+		var KeyChk = -1;
+		if (sMCnt > 0) {
+			for (var i in oMarkers) {
+				if (oMarkers[i].Key == iKey) { // 동일한 키가 있으면 위치 이동을 함!
+					KeyChk = i;
+					break;
+				}
+			}
+		}
+
+
+		if (KeyChk > -1) {
+			oMarkers[KeyChk].Marker.setMap(null);
+			var markerOptions = {position: oPoint, 
+								 icon:  {
+											url: ImageUrl,
+											size: new naver.maps.Size(ImageSizeWidth, ImageSizeHeight),
+											anchor: new naver.maps.Point(ImagePointWidth, ImagePointHeight)
+										 }
+									};
+			var oMarker = new naver.maps.Marker(markerOptions);
+			oMarkers[KeyChk].Marker = oMarker; // 새로운 마커 적용
+			
+			sMCnt = KeyChk;
+		}
+		else {
+			var markerOptions = {position: oPoint, 
+								 icon:  {
+											url: ImageUrl,
+											size: new naver.maps.Size(ImageSizeWidth, ImageSizeHeight),
+											anchor: new naver.maps.Point(ImagePointWidth, ImagePointHeight)
+										 }
+									};
+			var oMarker = new naver.maps.Marker(markerOptions);
+	
+			var sObj = new Object();
+			sObj.Key = iKey;
+			sObj.Marker = oMarker;
+			sObj.Marker.set('key',iKey);
+			oMarkers[sMCnt] = sObj; // 배열에 마크 추가
+
+		}
+
+	    // 마커를 지도에 반영
+		oMarkers[sMCnt].Marker.setMap(oMap);
+		oMarkers[sMCnt].Marker.addListener( 'click', function(oEvent) {
+            setEventLatLng(oEvent.overlay) // 이벤트에 발생한 좌표 세팅
+            setEventKey(oEvent.overlay); // 이벤트에 발생한 키 세팅
+            markerClick = 1;
+        });
+
+	}
+
+	// 지정된 마크 제거
+	function delMarker(iKey) {
+
+		if (iKey == "all") {
+			for (var i in oMarkers) {
+				if(oMarkers[i].Marker != null) oMarkers[i].Marker.setMap(null); 
+			}
+		}
+		else {
+			for (var j in oMarkers) {
+				if (oMarkers[j].Key == iKey) {
+					if(oMarkers[j].Marker != null) oMarkers[j].Marker.setMap(null); 
+					break;
+				}
+			}
+		}
+	}
+
+	// 정보창 생성
+	function setInfoWindow(iKey, Lat, Lng, ContentString) {
+
+		if(Lat == null || Lng == null || Lat == "" || Lng == ""  || Lat == 0 || Lng == 0 ) {
+			//alert("알수없는 좌표 입니다.");
+			return;
+		}
+		var sMCnt = oInfoWindows.length;
+		//alert("등록된 마커수:" + sMCnt);
+	
+		// 마크 위치
+		var oPoint;
+		if (Lat > 1000) {
+			oPoint = new naver.maps.TM128(Lat, Lng);
+		} else {
+			oPoint = new naver.maps.LatLng(Lat, Lng);
+		}
+		
+		// 등록된 키가 있는지 확인
+		var KeyChk = -1;
+		if (sMCnt > 0) {
+			for (var i in oInfoWindows) {
+				if (oInfoWindows[i].Key == iKey) { // 동일한 키가 있으면 위치 이동을 함!
+					KeyChk = i;
+					break;
+				}
+			}
+		}
+
+		if (KeyChk > -1) {
+			oInfoWindows[KeyChk].InfoWindow.close();
+			var oInfoWindow =  new naver.maps.InfoWindow({
+															content: ContentString
+														});
+
+			oInfoWindows[KeyChk].InfoWindow = oInfoWindow; // 새로운 정보창 적용
+			sMCnt = KeyChk;
+		}
+
+		else {
+
+			var oInfoWindow =  new naver.maps.InfoWindow({
+															content: ContentString
+														});
+	
+			var sObj = new Object();
+			sObj.Key = iKey;
+			sObj.InfoWindow = oInfoWindow;
+			oInfoWindows[sMCnt] = sObj; // 배열에 마크 추가
+
+		}
+
+	    // 정보창을 지도에 반영
+		oInfoWindows[sMCnt].InfoWindow.open(oMap, oPoint);
+		oInfoWindows[sMCnt].InfoWindow.addListener( 'click', function(oEvent) {
+			setEventLatLng(oEvent.overlay) // 이벤트에 발생한 좌표 세팅
+			setEventKey(oEvent.overlay); // 이벤트에 발생한 키 세팅
+			infowindowClick = 1;
+		});
+
+	}
+
+    // 정보창 생성 (마커 연동)
+    function setInfoWindowMarker(iKey, iMarkerKey, ContentString) {
+
+        var sMCnt = oInfoWindows.length;
+        //alert("등록된 마커수:" + sMCnt);
+
+        // 등록된 키가 있는지 확인
+        var KeyChk = -1;
+        if (sMCnt > 0) {
+            for (var i in oInfoWindows) {
+                if (oInfoWindows[i].Key == iKey) { // 동일한 키가 있으면 위치 이동을 함!
+                    KeyChk = i;
+                    break;
+                }
+            }
+        }
+
+        var MarkeKeyChk = -1;
+        for (var i in oMarkers) {
+            if (oMarkers[i].Key == iMarkerKey) { // 동일한 키가 있으면 위치 이동을 함!
+                MarkeKeyChk = i;
+                break;
+            }
+        }
+        if (MarkeKeyChk == -1) {
+            alert("해당 마커키의 마커가 없습니다.!");
+            return;
+        }
+
+        if (KeyChk > -1) {
+            oInfoWindows[KeyChk].InfoWindow.close();
+            var oInfoWindow = new naver.maps.InfoWindow({
+                content: ContentString
+            });
+
+            oInfoWindows[KeyChk].InfoWindow = oInfoWindow; // 새로운 정보창 적용
+            sMCnt = KeyChk;
+        }
+
+        else {
+
+            var oInfoWindow = new naver.maps.InfoWindow({
+                content: ContentString
+            });
+
+            var sObj = new Object();
+            sObj.Key = iKey;
+            sObj.InfoWindow = oInfoWindow;
+            oInfoWindows[sMCnt] = sObj; // 배열에 마크 추가
+
+        }
+
+        // 정보창을 지도에 반영
+        oInfoWindows[sMCnt].InfoWindow.open(oMap, oMarkers[MarkeKeyChk].Marker);
+        oInfoWindows[sMCnt].InfoWindow.addListener('click', function (oEvent) {
+            setEventLatLng(oEvent.overlay) // 이벤트에 발생한 좌표 세팅
+            setEventKey(oEvent.overlay); // 이벤트에 발생한 키 세팅
+            infowindowClick = 1;
+        });
+
+    }
+
+	// 정보창 제거
+	function delInfoWindow(iKey) {
+
+		if (iKey == "all") {
+			for (var i in oInfoWindows) {
+                if (oInfoWindows[i].InfoWindow != null) oInfoWindows[i].InfoWindow.close(); 
+			}
+		}
+		else {
+			for (var j in oInfoWindows) {
+				if (oInfoWindows[j].Key == iKey) {
+                    if (oInfoWindows[j].InfoWindow != null) oInfoWindows[j].InfoWindow.close(); 
+					break;
+				}
+			}
+		}
+	}
+
+	function getTMtoWGS(MapX, MapY) {
+		var oPoint = new naver.maps.TM128(MapX, MapY);
+		return oPoint.toLatLng().toString();
+	}
+
+	function getWGStoTM(Lat, Lng) {
+		var oPoint = new naver.maps.LatLng(Lat, Lng);
+		return oPoint.toTM128().toString();
+	}
+	
+
+    // 좌표 -> 주소  
+	function getCoordinateToAddress(Lat, Lng) {
+		var oPoint = new naver.maps.LatLng(Lat, Lng);
+
+		naver.maps.Service.reverseGeocode({
+            location: oPoint,
+            coordType: naver.maps.Service.CoordType.LATLNG
+		}, function(status, response) {
+			if (status === naver.maps.Service.Status.ERROR) {
+				addrresult = "Error,Something Wrong!";
+                return;
+			}
+
+            var items = response.result.items;
+
+			var jibunAddress = "";
+            var roadAddress = "";
+
+			for (var i=0, ii=items.length, item, addrType; i<ii; i++) {
+				item = items[i];
+				if(item.isRoadAddress) {
+                    roadAddress = item.address;
+				} else {
+                    jibunAddress = item.address;				
+				}
+            }
+
+            addrresult = jibunAddress.toString() + "," + roadAddress.toString();
+           
+		});
+	}
+
+    // 주소 -> 좌표
+	function getAddressToCoordinate(Address) {
+		naver.maps.Service.geocode({
+			address: Address
+		}, function(status, response) {
+			if (status === naver.maps.Service.Status.ERROR) {
+				coordresult = "Error,Something Wrong!,";
+				return;
+			}
+
+			var item = response.result.items[0], 
+				addrType = item.isRoadAddress ? 'RoadAddress' : 'JiBunAddress',
+				point = new naver.maps.Point(item.point.x, item.point.y);
+
+            coordresult = addrType + "," + point.y + "," + point.x;
+		});
+	}
+
+
+	/* 이벤트 처리 */
+	function getEventObject() {
+		return EventObject;
+	}
+
+	function getEventLatLng() {
+		return EventLatLng;
+	}
+
+	function getEventKey() {
+		return EventKey;
+	}
+
+	function EventClick() {
+		var r = click;
+		click = "";
+		return r;
+	}
+
+	function EventDblClick() {
+		var r = dblclick;
+		dblclick = "";
+		return r;
+	}
+
+	function EventMouseMove() {
+		var r = mousemove;
+		mousemove = "";
+		return r;
+	}
+
+	function EventMouseWheel() {
+		var r = mousewheel;
+		mousewheel = "";
+		return r;
+	}
+				
+	function EventMouseUp() {
+		var r = mouseup;
+		mouseup = "";
+		return r;
+	}
+
+	function EventMouseDown() {
+		var r = mousedown;
+		mousedown = "";
+		return r;
+	}
+
+	function EventCenterChanged() {
+		var r = centerchanged;
+		centerchanged = "";
+		return r;
+	}
+
+	function EventBoundsChanged() {
+		var r = boundschanged;
+		boundschanged = "";
+		return r;
+	}
+
+	function EventDrag() {
+		var r = drag;
+		drag = "";
+		return r;
+	}
+
+	function EventDragStart() {
+		var r = dragstart;
+		dragstart = "";
+		return r;
+	}
+
+	function EventDragEnd() {
+		var r = dragend;
+		dragend = "";
+		return r;
+	}
+
+	function EventZoomChanged() {
+		var r = zoomchanged;
+		zoomchanged = "";
+		return r;
+	}
+
+	function EventIdle() {
+		var r = idle;
+		idle = "";
+		return r;
+	}
+
+	function EventMarkerClick() {
+		var r = markerClick;
+		markerClick = ""
+		return r;
+	}
+
+    /* 
+	function EventLineClick() {
+		var r = lineClick;
+		lineClick = ""
+		return r;
+	}
+
+	function EventRectangleClick() {
+		var r = rectangleClick;
+		rectangleClick = ""
+		return r;
+	}
+
+	function EventCircleClick() {
+		var r = circleClick;
+		circleClick = ""
+		return r;
+	}
+
+	function EventEllipseClick() {
+		var r = ellipseClick;
+		ellipseClick = ""
+		return r;
+	}
+
+	function EventPolygonClick() {
+		var r = polygonClick;
+		polygonClick = ""
+		return r;
+	}
+
+    function EventInfoWindowClick() {
+        var r = infowindowClick;
+        infowindowClick = "";
+        return r;
+    }
+    */
+
+	function EventCoordResult() {
+		var r = coordresult;
+		coordresult = ""
+		return r;
+	}
+
+	function EventAddrResult() {
+		var r = addrresult;
+		addrresult = "";
+		return r;
+	}
+
+	// 맵 이벤트
+	naver.maps.Event.addListener(oMap, 'click', function(oEvent) {
+		setEventLatLng(oEvent) // 이벤트에 발생한 좌표 세팅
+		click = 1;
+	});
+
+	naver.maps.Event.addListener(oMap, 'dblclick', function(oEvent) {
+		setEventLatLng(oEvent) // 이벤트에 발생한 좌표 세팅
+		dblclick = 1;
+	});
+
+	naver.maps.Event.addListener(oMap, 'mousedown', function(oEvent) {
+		setEventLatLng(oEvent) // 이벤트에 발생한 좌표 세팅
+		mousedown = 1;
+	});
+
+	naver.maps.Event.addListener(oMap, 'mouseup', function(oEvent) {
+		setEventLatLng(oEvent) // 이벤트에 발생한 좌표 세팅
+		mouseup = 1;
+	});
+
+	naver.maps.Event.addListener(oMap, 'mousewheel', function(oEvent) {
+		setEventLatLng(oEvent) // 이벤트에 발생한 좌표 세팅
+		mousewheel = 1;
+	});
+
+	naver.maps.Event.addListener(oMap, 'mousemove', function(oEvent) {
+		setEventLatLng(oEvent) // 이벤트에 발생한 좌표 세팅
+		mousemove = 1;
+	});
+
+	naver.maps.Event.addListener(oMap, 'center_changed', function(oEvent) {
+		centerchanged = 1;
+	});
+
+	naver.maps.Event.addListener(oMap, 'bounds_changed', function(oEvent) {
+		boundschanged = 1;
+	});
+
+	naver.maps.Event.addListener(oMap, 'drag', function(oEvent) {
+		setEventLatLng(oEvent) // 이벤트에 발생한 좌표 세팅
+		drag = 1;
+	});	
+
+	naver.maps.Event.addListener(oMap, 'dragstart', function(oEvent) {
+		setEventLatLng(oEvent) // 이벤트에 발생한 좌표 세팅
+		dragstart = 1;
+	});	
+
+	naver.maps.Event.addListener(oMap, 'dragend', function(oEvent) {
+		setEventLatLng(oEvent) // 이벤트에 발생한 좌표 세팅
+		dragend = 1;
+	});	
+
+	naver.maps.Event.addListener(oMap, 'zoom_changed', function(oEvent) {
+		zoomchanged = 1;
+	});	
+
+	naver.maps.Event.addListener(oMap, 'idle', function(oEvent) {
+		EventKey = ''
+		idle = 1;
+	});	
+
+	function setEventLatLng(oEvent) {
+		if (oEvent instanceof naver.maps.Marker || 
+		    oEvent instanceof naver.maps.Polyline ||
+			oEvent instanceof naver.maps.Polygon ||
+			oEvent instanceof naver.maps.Circle ||
+			oEvent instanceof naver.maps.Rectangle ||
+			oEvent instanceof naver.maps.Ellipse ||
+			oEvent instanceof naver.maps.InfoWindow ||
+			oEvent instanceof naver.maps.ZoomControl)  
+		{
+			EventLatLng = oEvent.position.y.toString() + "," + oEvent.position.x.toString();
+		} else {
+			EventLatLng = oEvent.latlng.y.toString() + "," + oEvent.latlng.x.toString();
+		}
+	}
+
+	function setEventKey(oEvent) {
+		if(oEvent instanceof naver.maps.Map) {
+			EventKey = ''
+		} else {
+			EventKey = oEvent.get('key');
+		}
+	}
+
+	function getTrueFalse(tf)
+	{
+		if (tf == true || tf == 1 || tf == "true" || tf == "True" || tf == "TRUE" || tf == "1")
+		{
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+</script>
+</body>
+</html>
